@@ -1,9 +1,7 @@
 import asyncio
 import json
-from contextlib import suppress
 
 from asgiref.sync import async_to_sync
-from django.conf import settings
 
 from ..consumer import AsyncConsumer, SyncConsumer
 from ..exceptions import (
@@ -161,18 +159,6 @@ class AsyncWebsocketConsumer(AsyncConsumer):
         if self.groups is None:
             self.groups = []
 
-        self.heathcheck_task = None
-
-    async def __call__(self, scope, receive, send):
-        try:
-            await super().__call__(scope, receive, send)
-        finally:
-            # cleanup healthcheck
-            if self.heathcheck_task is not None:
-                self.heathcheck_task.cancel()
-                with suppress(asyncio.CancelledError):
-                    await self.heathcheck_task
-
     async def websocket_connect(self, message):
         """
         Called when a WebSocket connection is opened.
@@ -199,17 +185,6 @@ class AsyncWebsocketConsumer(AsyncConsumer):
         Accepts an incoming socket
         """
         await super().send({"type": "websocket.accept", "subprotocol": subprotocol})
-        # launch healthcheck if defined
-        if hasattr(self, 'healthcheck'):
-            self.heathcheck_task = asyncio.create_task(
-                self.heathcheck(
-                    interval=getattr(
-                        settings,
-                        'CHANNELS_WEBSOCKET_HEALTHCHECK_INTERVAL',
-                        120
-                    )
-                )
-            )
 
     async def websocket_receive(self, message):
         """

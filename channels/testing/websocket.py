@@ -100,3 +100,14 @@ class WebsocketCommunicator(ApplicationCommunicator):
         """
         await self.send_input({"type": "websocket.disconnect", "code": code})
         await self.wait(timeout)
+
+    async def receive_disconnect(self, code=None, timeout=1):
+        """
+        Receives close data frame from the view. Will fail if the connection
+        is not closed by the view.
+        """
+        response = await self.receive_output(timeout)
+        # Make sure this is a send message
+        assert response["type"] == "websocket.close"
+        if code is not None:
+            assert response["code"] == code
