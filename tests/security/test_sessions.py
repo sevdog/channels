@@ -111,5 +111,22 @@ async def test_websocket_check_session_password_change(logged_session, user, ws_
     await communicator.disconnect()
 
 
+@pytest.mark.django_db(transaction=True)
+@pytest.mark.asyncio
+async def test_websocket_check_session_expire(logged_session, user, ws_check_soon):
+    """
+    Tests a close frame is sent to user after a session expires
+    """
+    app = SessionMiddlewareStack(SessionCheckAsyncWebsocketConsumer())
+    communicator = WebsocketCommunicator(app, "/")
+    communicator.scope["session"] = logged_session
+    connected, _ = await communicator.connect()
+    assert connected
+    # set expiry in 1 second
+    logged_session.set_expiry(timedelta(seconds=1))
+    await communicator.receive_disconnect(timeout=5)
+    # Close out
+    await communicator.disconnect()
+
 
 

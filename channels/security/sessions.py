@@ -1,7 +1,10 @@
 import asyncio
 from contextlib import suppress
+from importlib import import_module
+
 from django.conf import settings
 
+from ..db import database_sync_to_async
 from ..auth import get_user
 from ..exceptions import StopConsumer
 from ..generic.websocket import AsyncWebsocketConsumer, AsyncJsonWebsocketConsumer
@@ -39,12 +42,19 @@ class SessionCheckAsyncWebsocketConsumer(AsyncWebsocketConsumer):
         """
         Gets user from scope and check it is not anonymous
         """
-        user = await get_user(self.scope)
+        # need to refresh session
+        scope = {
+            'session': await database_sync_to_async(
+                    self.session_store
+                )(self.scope['session'].session_key),
+        }
+        user = await get_user(scope)
         if user.is_anonymous:
             await self.close()
         return user
 
     async def _run_session_check(self, interval):
+        self.session_store = import_module(settings.SESSION_ENGINE).SessionStore
         while True:
             await asyncio.sleep(interval)
             await self.check_session()
