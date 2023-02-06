@@ -76,11 +76,15 @@ async def test_websocket_check_session_logut(logged_session, ws_check_soon):
     """
     app = SessionMiddlewareStack(SessionCheckAsyncWebsocketConsumer())
     communicator = WebsocketCommunicator(app, "/")
+    # add session and connect
     communicator.scope["session"] = logged_session
     connected, _ = await communicator.connect()
     assert connected
+    # destroy session
     await flush_session(logged_session)
     await communicator.receive_disconnect(timeout=3)
+    # Close out
+    await communicator.disconnect()
 
 
 @pytest.mark.django_db(transaction=True)
@@ -95,12 +99,16 @@ async def test_websocket_check_session_password_change(logged_session, user, ws_
     assert logged_session[HASH_SESSION_KEY] == user.get_session_auth_hash()
     app = SessionMiddlewareStack(SessionCheckAsyncWebsocketConsumer())
     communicator = WebsocketCommunicator(app, "/")
+    # add session and connect
     communicator.scope["session"] = logged_session
     connected, _ = await communicator.connect()
     assert connected
+    # changing password invalidates session auth hash
     await change_user_password(user)
     assert logged_session[HASH_SESSION_KEY] != user.get_session_auth_hash()
     await communicator.receive_disconnect(timeout=3)
+    # Close out
+    await communicator.disconnect()
 
 
 
